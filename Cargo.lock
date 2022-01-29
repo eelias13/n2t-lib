@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "n2t_vm"
+name = "n2t-lib"
 version = "0.1.0"
 dependencies = [
  "logos",

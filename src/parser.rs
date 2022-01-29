@@ -7,8 +7,10 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
     let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
     let mut result = Vec::new();
 
-    let mut lables = HashMap::new();
+    let mut labels = HashMap::new();
     let mut functions = HashMap::new();
+
+    let mut set_label = Vec::new();
 
     while let Some(token) = tokenizer.next() {
         match token {
@@ -25,9 +27,21 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
             Token::Push => push(&mut tokenizer, &mut result)?,
             Token::Pop => pop(&mut tokenizer, &mut result)?,
 
-            Token::Lable => lable(&mut tokenizer, &mut result, &mut lables)?,
-            Token::Goto => goto(&mut tokenizer, &mut result, &mut lables, false)?,
-            Token::IfGoto => goto(&mut tokenizer, &mut result, &mut lables, true)?,
+            Token::Label => label(&mut tokenizer, &mut result, &mut labels)?,
+            Token::Goto => goto(
+                &mut tokenizer,
+                &mut result,
+                &mut labels,
+                &mut set_label,
+                false,
+            )?,
+            Token::IfGoto => goto(
+                &mut tokenizer,
+                &mut result,
+                &mut labels,
+                &mut set_label,
+                true,
+            )?,
 
             Token::Function => function(&mut tokenizer, &mut result, &mut functions)?,
             Token::Call => call(&mut tokenizer, &mut result, &mut functions)?,
@@ -46,7 +60,7 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
                     Token::Lt,
                     Token::Not,
                     Token::Neg,
-                    Token::Lable,
+                    Token::Label,
                     Token::Goto,
                     Token::IfGoto,
                     Token::Function,
@@ -57,7 +71,22 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
             }
         }
     }
-    Ok(result)
+
+    for (name, i) in set_label {
+        if let Some(&addr) = labels.get(&name) {
+            if result[i] == Instruction::Goto(0) {
+                result[i] = Instruction::Goto(addr);
+            } else if result[i] == Instruction::IfGoto(0) {
+                result[i] = Instruction::IfGoto(addr);
+            } else {
+                unreachable!();
+            }
+        } else {
+            return Err(tokenizer.error(&format!("can not finde label {}", name)));
+        }
+    }
+
+    return Ok(result);
 }
 
 fn function(
@@ -65,7 +94,15 @@ fn function(
     result: &mut Vec<Instruction>,
     functions: &mut HashMap<String, (usize, usize)>,
 ) -> Result<(), Error> {
-    Ok(())
+    tokenizer.next();
+    if let Token::Name(name) = tokenizer.expect(Token::Name(String::new()))? {
+        let num = get_num(tokenizer)?;
+        functions.insert(name.clone(), (num, result.len()));
+        result.push(Instruction::Function(name, num));
+        return Ok(());
+    } else {
+        unreachable!();
+    }
 }
 
 fn call(
@@ -73,19 +110,29 @@ fn call(
     result: &mut Vec<Instruction>,
     functions: &mut HashMap<String, (usize, usize)>,
 ) -> Result<(), Error> {
-    Ok(())
+    tokenizer.next();
+    if let Token::Name(name) = tokenizer.expect(Token::Name(String::new()))? {
+        let _num = get_num(tokenizer)?; // ????????????????????
+        if let Some((argc, adder)) = functions.get(&name) {
+            result.push(Instruction::Call(*adder, *argc));
+            return Ok(());
+        } else {
+            return Err(tokenizer.error(&format!("can not finde labal {}", name)));
+        }
+    } else {
+        unreachable!();
+    }
 }
 
-fn lable(
+fn label(
     tokenizer: &mut Tokenizer<Token>,
     result: &mut Vec<Instruction>,
-    lables: &mut HashMap<String, usize>,
+    labels: &mut HashMap<String, usize>,
 ) -> Result<(), Error> {
     tokenizer.next();
-
     if let Some(Token::Name(name)) = tokenizer.current() {
-        lables.insert(name.clone(), result.len());
-        result.push(Instruction::Lable(name));
+        labels.insert(name.clone(), result.len());
+        result.push(Instruction::Label(name));
         return Ok(());
     } else {
         tokenizer.expect(Token::Name(String::new()))?;
@@ -96,20 +143,27 @@ fn lable(
 fn goto(
     tokenizer: &mut Tokenizer<Token>,
     result: &mut Vec<Instruction>,
-    lables: &mut HashMap<String, usize>,
+    labels: &mut HashMap<String, usize>,
+    set_label: &mut Vec<(String, usize)>,
     is_if: bool,
 ) -> Result<(), Error> {
     tokenizer.next();
     if let Some(Token::Name(name)) = tokenizer.current() {
-        if let Some(&addr) = lables.get(&name) {
+        if let Some(&addr) = labels.get(&name) {
             result.push(if is_if {
                 Instruction::IfGoto(addr)
             } else {
                 Instruction::Goto(addr)
             });
-            return Ok(());
+        } else {
+            set_label.push((name, result.len()));
+            result.push(if is_if {
+                Instruction::IfGoto(0)
+            } else {
+                Instruction::Goto(0)
+            });
         }
-        return Err(tokenizer.error(&format!("")));
+        return Ok(());
     } else {
         tokenizer.expect(Token::Name(String::new()))?;
         unreachable!();
@@ -203,8 +257,8 @@ pub enum Token {
     #[token("not")]
     Not,
 
-    #[token("lable")]
-    Lable,
+    #[token("label")]
+    Label,
     #[token("goto")]
     Goto,
     #[token("if-goto")]
@@ -239,7 +293,7 @@ pub enum Token {
     #[token("\n", ignore)]
     Ignore((usize, Option<String>)),
 
-    #[regex(r"[a-zA-Z]+", |lexer| lexer.slice().parse())]
+    #[regex(r"[a-zA-Z][a-zA-Z|0-9|\.|_]+", |lexer| lexer.slice().parse())]
     Name(String),
     #[regex(r"[0-9]+", |lexer| lexer.slice().parse())]
     Number(usize),
@@ -264,7 +318,7 @@ impl TypeEq for Token {
             (Token::And, Token::And) => true,
             (Token::Or, Token::Or) => true,
             (Token::Not, Token::Not) => true,
-            (Token::Lable, Token::Lable) => true,
+            (Token::Label, Token::Label) => true,
             (Token::Goto, Token::Goto) => true,
             (Token::IfGoto, Token::IfGoto) => true,
             (Token::Function, Token::Function) => true,

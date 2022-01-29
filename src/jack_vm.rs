@@ -103,33 +103,33 @@ impl JackVM {
             Instruction::Eq => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
-                        self.stack.push(if val1 == val2 { 1 } else { 0 });
+                        self.stack.push(if val1 == val2 { 0 } else { 1 });
                     }
                 }
             }
             Instruction::Gt => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
-                        self.stack.push(if val1 > val2 { 1 } else { 0 });
+                        self.stack.push(if val1 > val2 { 0 } else { 1 });
                     }
                 }
             }
             Instruction::Lt => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
-                        self.stack.push(if val1 < val2 { 1 } else { 0 });
+                        self.stack.push(if val1 < val2 { 0 } else { 1 });
                     }
                 }
             }
 
             Instruction::Function(_, _) => todo!(),
-            Instruction::Call(addr, argsv) => todo!(),
+            Instruction::Call(addr, argc) => todo!(),
             Instruction::Return => todo!(),
 
-            Instruction::Lable(_) => (),
+            Instruction::Label(_) => (),
             Instruction::IfGoto(addr) => {
                 if let Some(val) = self.stack_pop() {
-                    if val == 1 {
+                    if val == 0 {
                         self.program_counter = addr;
                     }
                 }

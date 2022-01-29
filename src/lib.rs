@@ -29,10 +29,10 @@ pub enum Instruction {
     And,
     Or,
     Not,
-    Lable(String),
+    Label(String),
     Goto(usize),
     IfGoto(usize),
     Function(String, usize),
-    Call(usize, Vec<isize>),
+    Call(usize, usize),
     Return,
 }
