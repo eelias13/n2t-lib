@@ -43,6 +43,7 @@ name = "n2t_vm"
 version = "0.1.0"
 dependencies = [
  "logos",
+ "tokenizer",
 ]
 
 [[package]]
@@ -78,6 +79,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "tokenizer"
+version = "0.1.0"
+source = "git+https://github.com/eeli1/tokenizer#901f51b833d9f1764dc079c65c3fd9627ff00fd1"
+dependencies = [
+ "logos",
 ]
 
 [[package]]

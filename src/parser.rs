@@ -1,15 +1,16 @@
-use crate::lexer::{Error, Token, Tokenizer};
 use crate::{Instruction, Segment};
+use logos::{Lexer, Logos};
 use std::collections::HashMap;
+use tokenizer::{Error, Tokenizer, TypeEq};
 
 pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
-    let mut lexer ;//= Token::lexer(code);
+    let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
     let mut result = Vec::new();
 
     let mut lables = HashMap::new();
     let mut functions = HashMap::new();
 
-    while let Some(token) = lexer.next() {
+    while let Some(token) = tokenizer.next() {
         match token {
             Token::Add => result.push(Instruction::Add),
             Token::Sub => result.push(Instruction::Sub),
@@ -21,41 +22,37 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
             Token::Not => result.push(Instruction::Not),
             Token::Neg => result.push(Instruction::Neg),
 
-            Token::Push => pop(&mut lexer, &mut result)?,
-            Token::Pop => pop(&mut lexer, &mut result)?,
+            Token::Push => push(&mut tokenizer, &mut result)?,
+            Token::Pop => pop(&mut tokenizer, &mut result)?,
 
-            Token::Lable => lable(&mut lexer, &mut result, &mut lables)?,
-            Token::Goto => goto(&mut lexer, &mut result, &mut lables, false)?,
-            Token::IfGoto => goto(&mut lexer, &mut result, &mut lables, true)?,
+            Token::Lable => lable(&mut tokenizer, &mut result, &mut lables)?,
+            Token::Goto => goto(&mut tokenizer, &mut result, &mut lables, false)?,
+            Token::IfGoto => goto(&mut tokenizer, &mut result, &mut lables, true)?,
 
-            Token::Function => function(&mut lexer, &mut result, &mut functions)?,
-            Token::Call => call(&mut lexer, &mut result, &mut functions)?,
+            Token::Function => function(&mut tokenizer, &mut result, &mut functions)?,
+            Token::Call => call(&mut tokenizer, &mut result, &mut functions)?,
             Token::Return => result.push(Instruction::Return),
 
             _ => {
-                Error::expect_multi(
-                    Some(token),
-                    vec![
-                        Token::Push,
-                        Token::Pop,
-                        Token::Add,
-                        Token::Sub,
-                        Token::And,
-                        Token::Or,
-                        Token::Eq,
-                        Token::Gt,
-                        Token::Lt,
-                        Token::Not,
-                        Token::Neg,
-                        Token::Lable,
-                        Token::Goto,
-                        Token::IfGoto,
-                        Token::Function,
-                        Token::Call,
-                        Token::Return,
-                    ],
-                    &lexer,
-                )?;
+                tokenizer.expect_multi(vec![
+                    Token::Push,
+                    Token::Pop,
+                    Token::Add,
+                    Token::Sub,
+                    Token::And,
+                    Token::Or,
+                    Token::Eq,
+                    Token::Gt,
+                    Token::Lt,
+                    Token::Not,
+                    Token::Neg,
+                    Token::Lable,
+                    Token::Goto,
+                    Token::IfGoto,
+                    Token::Function,
+                    Token::Call,
+                    Token::Return,
+                ])?;
                 unreachable!();
             }
         }
@@ -64,7 +61,7 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
 }
 
 fn function(
-    lexer: &mut Lexer<Token>,
+    tokenizer: &mut Tokenizer<Token>,
     result: &mut Vec<Instruction>,
     functions: &mut HashMap<String, (usize, usize)>,
 ) -> Result<(), Error> {
@@ -72,7 +69,7 @@ fn function(
 }
 
 fn call(
-    lexer: &mut Lexer<Token>,
+    tokenizer: &mut Tokenizer<Token>,
     result: &mut Vec<Instruction>,
     functions: &mut HashMap<String, (usize, usize)>,
 ) -> Result<(), Error> {
@@ -80,75 +77,93 @@ fn call(
 }
 
 fn lable(
-    lexer: &mut Lexer<Token>,
+    tokenizer: &mut Tokenizer<Token>,
     result: &mut Vec<Instruction>,
     lables: &mut HashMap<String, usize>,
 ) -> Result<(), Error> {
-    Ok(())
-}
+    tokenizer.next();
 
-fn goto(
-    lexer: &mut Lexer<Token>,
-    result: &mut Vec<Instruction>,
-    lables: &mut HashMap<String, usize>,
-    is_if: bool,
-) -> Result<(), Error> {
-    Ok(())
-}
-
-fn pop(lexer: &mut Lexer<Token>, result: &mut Vec<Instruction>) -> Result<(), Error> {
-    let seg = get_seg(lexer.next(), lexer)?;
-    let addr = Error::expect(lexer.next(), Token::Number(0), lexer)?;
-    if let Token::Number(addr) = addr {
-        result.push(Instruction::Pop(seg, addr));
-        Ok(())
+    if let Some(Token::Name(name)) = tokenizer.current() {
+        lables.insert(name.clone(), result.len());
+        result.push(Instruction::Lable(name));
+        return Ok(());
     } else {
+        tokenizer.expect(Token::Name(String::new()))?;
         unreachable!();
     }
 }
 
-fn push(lexer: &mut Lexer<Token>, result: &mut Vec<Instruction>) -> Result<(), Error> {
-    let token = lexer.next();
-    if token == Some(Token::Constant) {
-        let token = lexer.next();
-        let value = if token == Some(Token::MinusSign) {
-            get_num(lexer.next(), lexer)? as isize * -1
-        } else {
-            get_num(token, lexer)? as isize
-        };
+fn goto(
+    tokenizer: &mut Tokenizer<Token>,
+    result: &mut Vec<Instruction>,
+    lables: &mut HashMap<String, usize>,
+    is_if: bool,
+) -> Result<(), Error> {
+    tokenizer.next();
+    if let Some(Token::Name(name)) = tokenizer.current() {
+        if let Some(&addr) = lables.get(&name) {
+            result.push(if is_if {
+                Instruction::IfGoto(addr)
+            } else {
+                Instruction::Goto(addr)
+            });
+            return Ok(());
+        }
+        return Err(tokenizer.error(&format!("")));
+    } else {
+        tokenizer.expect(Token::Name(String::new()))?;
+        unreachable!();
+    }
+}
 
+fn pop(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<Instruction>) -> Result<(), Error> {
+    tokenizer.next();
+    let seg = get_seg(tokenizer)?;
+    let addr = get_num(tokenizer)?;
+    result.push(Instruction::Pop(seg, addr));
+    Ok(())
+}
+
+fn push(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<Instruction>) -> Result<(), Error> {
+    tokenizer.next();
+
+    if tokenizer.is(Token::Constant) {
+        tokenizer.next();
+        let value = if tokenizer.is(Token::MinusSign) {
+            tokenizer.next();
+            get_num(tokenizer)? as isize * -1
+        } else {
+            get_num(tokenizer)? as isize
+        };
         result.push(Instruction::PushConst(value));
         Ok(())
     } else {
-        let seg = get_seg(token, lexer)?;
-        let addr = get_num(lexer.next(), lexer)?;
+        let seg = get_seg(tokenizer)?;
+        let addr = get_num(tokenizer)?;
         result.push(Instruction::Push(seg, addr));
         Ok(())
     }
 }
 
-fn get_num(token: Option<Token>, lexer: &mut Lexer<Token>) -> Result<usize, Error> {
-    if let Token::Number(num) = Error::expect(lexer.next(), Token::Number(0), lexer)? {
-        Ok(num)
+fn get_num(tokenizer: &mut Tokenizer<Token>) -> Result<usize, Error> {
+    if let Some(Token::Number(num)) = tokenizer.current() {
+        return Ok(num);
     } else {
+        tokenizer.expect(Token::Number(0))?;
         unreachable!();
     }
 }
 
-fn get_seg(token: Option<Token>, lexer: &Lexer<Token>) -> Result<Segment, Error> {
-    let token = Error::expect_multi(
-        token,
-        vec![
-            Token::This,
-            Token::That,
-            Token::Local,
-            Token::Argument,
-            Token::Static,
-            Token::Pointer,
-            Token::Temp,
-        ],
-        lexer,
-    )?;
+fn get_seg(tokenizer: &mut Tokenizer<Token>) -> Result<Segment, Error> {
+    let token = tokenizer.expect_multi(vec![
+        Token::This,
+        Token::That,
+        Token::Local,
+        Token::Argument,
+        Token::Static,
+        Token::Pointer,
+        Token::Temp,
+    ])?;
 
     Ok(match token {
         Token::This => Segment::This,
@@ -160,4 +175,124 @@ fn get_seg(token: Option<Token>, lexer: &Lexer<Token>) -> Result<Segment, Error>
         Token::Temp => Segment::Temp,
         _ => unreachable!(),
     })
+}
+
+#[derive(Logos, Debug, Clone)]
+pub enum Token {
+    #[token("push")]
+    Push,
+    #[token("pop")]
+    Pop,
+
+    #[token("add")]
+    Add,
+    #[token("sub")]
+    Sub,
+    #[token("neg")]
+    Neg,
+    #[token("eq")]
+    Eq,
+    #[token("gt")]
+    Gt,
+    #[token("lt")]
+    Lt,
+    #[token("and")]
+    And,
+    #[token("or")]
+    Or,
+    #[token("not")]
+    Not,
+
+    #[token("lable")]
+    Lable,
+    #[token("goto")]
+    Goto,
+    #[token("if-goto")]
+    IfGoto,
+
+    #[token("function")]
+    Function,
+    #[token("call")]
+    Call,
+    #[token("return")]
+    Return,
+
+    #[token("this")]
+    This,
+    #[token("that")]
+    That,
+    #[token("local")]
+    Local,
+    #[token("argument")]
+    Argument,
+    #[token("static")]
+    Static,
+    #[token("pointer")]
+    Pointer,
+    #[token("temp")]
+    Temp,
+    #[token("constant")]
+    Constant,
+
+    #[token("\t", ignore)]
+    #[token(" ", ignore)]
+    #[token("\n", ignore)]
+    Ignore((usize, Option<String>)),
+
+    #[regex(r"[a-zA-Z]+", |lexer| lexer.slice().parse())]
+    Name(String),
+    #[regex(r"[0-9]+", |lexer| lexer.slice().parse())]
+    Number(usize),
+    #[token("-")]
+    MinusSign,
+
+    #[error]
+    Unknown,
+}
+
+impl TypeEq for Token {
+    fn type_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Token::Push, Token::Push) => true,
+            (Token::Pop, Token::Pop) => true,
+            (Token::Add, Token::Add) => true,
+            (Token::Sub, Token::Sub) => true,
+            (Token::Neg, Token::Neg) => true,
+            (Token::Eq, Token::Eq) => true,
+            (Token::Gt, Token::Gt) => true,
+            (Token::Lt, Token::Lt) => true,
+            (Token::And, Token::And) => true,
+            (Token::Or, Token::Or) => true,
+            (Token::Not, Token::Not) => true,
+            (Token::Lable, Token::Lable) => true,
+            (Token::Goto, Token::Goto) => true,
+            (Token::IfGoto, Token::IfGoto) => true,
+            (Token::Function, Token::Function) => true,
+            (Token::Call, Token::Call) => true,
+            (Token::Return, Token::Return) => true,
+            (Token::This, Token::This) => true,
+            (Token::That, Token::That) => true,
+            (Token::Local, Token::Local) => true,
+            (Token::Argument, Token::Argument) => true,
+            (Token::Static, Token::Static) => true,
+            (Token::Pointer, Token::Pointer) => true,
+            (Token::Temp, Token::Temp) => true,
+            (Token::Constant, Token::Constant) => true,
+            (Token::Ignore(_), Token::Ignore(_)) => true,
+            (Token::Name(_), Token::Name(_)) => true,
+            (Token::Number(_), Token::Number(_)) => true,
+            (Token::MinusSign, Token::MinusSign) => true,
+            _ => false,
+        }
+    }
+}
+
+fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
+    let slice = lexer.slice();
+    match slice {
+        " " => Some((0, None)),
+        "\n" => Some((0, Some("newline".to_string()))),
+        "\t" => Some((0, None)),
+        _ => Some((0, Some(slice.to_string()))),
+    }
 }

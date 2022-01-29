@@ -2,7 +2,7 @@ use crate::{Instruction, Segment};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub struct HackVM {
+pub struct JackVM {
     stack: Vec<isize>,
 
     this: HashMap<usize, isize>,
@@ -19,7 +19,7 @@ pub struct HackVM {
     is_runing: bool,
 }
 
-impl HackVM {
+impl JackVM {
     pub fn new(program: Vec<Instruction>) -> Self {
         Self {
             is_runing: program.len() != 0,

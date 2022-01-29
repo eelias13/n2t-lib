@@ -1,13 +1,8 @@
-mod hack_vm;
-mod lexer;
+mod jack_vm;
 mod parser;
 
-pub use hack_vm::HackVM;
+pub use jack_vm::JackVM;
 pub use parser::parse;
-
-fn main() {
-    println!("Hello, world!");
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Segment {
