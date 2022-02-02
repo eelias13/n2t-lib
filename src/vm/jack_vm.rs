@@ -1,4 +1,4 @@
-use crate::{Instruction, Segment};
+use crate::vm::{Instruction, Segment};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use n2t_lib::{parse, Instruction, Segment};
+use n2t_lib::vm::{parse, Instruction, Segment};
 
 #[test]
 fn push() {

@@ -1,4 +1,4 @@
-use crate::{Instruction, Segment};
+use crate::vm::{Instruction, Segment};
 use logos::{Lexer, Logos};
 use std::collections::HashMap;
 use tokenizer::{Error, Tokenizer, TypeEq};
