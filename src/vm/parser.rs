@@ -1,4 +1,4 @@
-use crate::vm::{Instruction, Segment};
+use super::{Instruction, Segment};
 use logos::{Lexer, Logos};
 use std::collections::HashMap;
 use tokenizer::{Error, Tokenizer, TypeEq};
@@ -232,7 +232,7 @@ fn get_seg(tokenizer: &mut Tokenizer<Token>) -> Result<Segment, Error> {
 }
 
 #[derive(Logos, Debug, Clone)]
-pub enum Token {
+enum Token {
     #[token("push")]
     Push,
     #[token("pop")]
