@@ -98,7 +98,7 @@ dependencies = [
 [[package]]
 name = "tokenizer"
 version = "0.1.0"
-source = "git+https://github.com/eeli1/tokenizer#901f51b833d9f1764dc079c65c3fd9627ff00fd1"
+source = "git+https://github.com/eeli1/tokenizer#467e8bf691d994b6d422a8db711ace1fb113f580"
 dependencies = [
  "logos",
 ]
