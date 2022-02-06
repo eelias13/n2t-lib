@@ -135,7 +135,7 @@ impl TryInto<Jump> for u8 {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Instruction {
+pub enum CPUInstruction {
     AInstruc(i16),
     CInstruc(Comp, Dest, Jump),
 }

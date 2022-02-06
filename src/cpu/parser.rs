@@ -1,14 +1,14 @@
-use super::{Comp, Dest, Instruction};
+use super::{CPUInstruction, Comp, Dest};
 use logos::{Lexer, Logos};
 use std::collections::HashMap;
 use tokenizer::{Error, Tokenizer, TypeEq};
 
-pub fn asm2ml(asm: Vec<Instruction>) -> Vec<u16> {
+pub fn asm2ml(asm: Vec<CPUInstruction>) -> Vec<u16> {
     let mut ml = Vec::new();
     for instrc in asm {
         match instrc {
-            Instruction::AInstruc(val) => ml.push((val & 0 << 15) as u16),
-            Instruction::CInstruc(comp, dest, jump) => {
+            CPUInstruction::AInstruc(val) => ml.push((val & 0 << 15) as u16),
+            CPUInstruction::CInstruc(comp, dest, jump) => {
                 ml.push(0b111 << 13 | (comp as u16) << 6 | (dest as u16) << 3 | jump as u16)
             }
         }
@@ -16,22 +16,22 @@ pub fn asm2ml(asm: Vec<Instruction>) -> Vec<u16> {
     ml
 }
 
-pub fn ml2asm(ml: Vec<u16>) -> Result<Vec<Instruction>, String> {
+pub fn ml2asm(ml: Vec<u16>) -> Result<Vec<CPUInstruction>, String> {
     let mut asm = Vec::new();
     for i in ml {
         if i & 0b1000000000000000 == 0b1000000000000000 {
             let comp = ((6 >> (i & 0b0001111111000000)) as u8).try_into()?;
             let dest = ((3 >> (i & 0b0000000000111000)) as u8).try_into()?;
             let jump = ((0 >> (i & 0b0000000000000111)) as u8).try_into()?;
-            asm.push(Instruction::CInstruc(comp, dest, jump))
+            asm.push(CPUInstruction::CInstruc(comp, dest, jump))
         } else {
-            asm.push(Instruction::AInstruc(i as i16));
+            asm.push(CPUInstruction::AInstruc(i as i16));
         }
     }
     Ok(asm)
 }
 
-pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
+pub fn parse(code: &str) -> Result<Vec<CPUInstruction>, Error> {
     let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
     let mut asm = Vec::new();
 
@@ -68,9 +68,9 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
             }
             Token::Name(name) => {
                 names.push((name, asm.len()));
-                asm.push(Instruction::AInstruc(0));
+                asm.push(CPUInstruction::AInstruc(0));
             }
-            Token::Number(val) => asm.push(Instruction::AInstruc(val as i16)),
+            Token::Number(val) => asm.push(CPUInstruction::AInstruc(val as i16)),
             _ => asm.push(c_instruc(&mut tokenizer)?),
         }
     }
@@ -86,13 +86,13 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
             var_count - 1
         };
 
-        asm[line] = Instruction::AInstruc(val as i16);
+        asm[line] = CPUInstruction::AInstruc(val as i16);
     }
 
     Ok(asm)
 }
 
-fn c_instruc(tokenizer: &mut Tokenizer<Token>) -> Result<Instruction, Error> {
+fn c_instruc(tokenizer: &mut Tokenizer<Token>) -> Result<CPUInstruction, Error> {
     let token = tokenizer.current().unwrap();
 
     let dest;
@@ -134,7 +134,7 @@ fn c_instruc(tokenizer: &mut Tokenizer<Token>) -> Result<Instruction, Error> {
         jump = super::Jump::Null;
     }
 
-    Ok(Instruction::CInstruc(comp, dest, jump))
+    Ok(CPUInstruction::CInstruc(comp, dest, jump))
 }
 
 fn get_dest(token: Token) -> Dest {

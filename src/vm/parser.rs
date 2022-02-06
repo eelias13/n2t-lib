@@ -1,9 +1,14 @@
-use super::{Instruction, Segment};
+use super::{Segment, VMInstruction};
+use crate::cpu::CPUInstruction;
 use logos::{Lexer, Logos};
 use std::collections::HashMap;
 use tokenizer::{Error, Tokenizer, TypeEq};
 
-pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
+pub fn vm2asm(instruc: Vec<VMInstruction>) -> Vec<CPUInstruction> {
+    Vec::new()
+}
+
+pub fn parse(code: &str) -> Result<Vec<VMInstruction>, Error> {
     let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
     let mut result = Vec::new();
 
@@ -14,15 +19,15 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
 
     while let Some(token) = tokenizer.next() {
         match token {
-            Token::Add => result.push(Instruction::Add),
-            Token::Sub => result.push(Instruction::Sub),
-            Token::And => result.push(Instruction::And),
-            Token::Or => result.push(Instruction::Or),
-            Token::Eq => result.push(Instruction::Eq),
-            Token::Gt => result.push(Instruction::Gt),
-            Token::Lt => result.push(Instruction::Lt),
-            Token::Not => result.push(Instruction::Not),
-            Token::Neg => result.push(Instruction::Neg),
+            Token::Add => result.push(VMInstruction::Add),
+            Token::Sub => result.push(VMInstruction::Sub),
+            Token::And => result.push(VMInstruction::And),
+            Token::Or => result.push(VMInstruction::Or),
+            Token::Eq => result.push(VMInstruction::Eq),
+            Token::Gt => result.push(VMInstruction::Gt),
+            Token::Lt => result.push(VMInstruction::Lt),
+            Token::Not => result.push(VMInstruction::Not),
+            Token::Neg => result.push(VMInstruction::Neg),
 
             Token::Push => push(&mut tokenizer, &mut result)?,
             Token::Pop => pop(&mut tokenizer, &mut result)?,
@@ -45,7 +50,7 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
 
             Token::Function => function(&mut tokenizer, &mut result, &mut functions)?,
             Token::Call => call(&mut tokenizer, &mut result, &mut functions)?,
-            Token::Return => result.push(Instruction::Return),
+            Token::Return => result.push(VMInstruction::Return),
 
             _ => {
                 tokenizer.expect_multi(vec![
@@ -74,10 +79,10 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
 
     for (name, i) in set_label {
         if let Some(&addr) = labels.get(&name) {
-            if result[i] == Instruction::Goto(0) {
-                result[i] = Instruction::Goto(addr);
-            } else if result[i] == Instruction::IfGoto(0) {
-                result[i] = Instruction::IfGoto(addr);
+            if result[i] == VMInstruction::Goto(0) {
+                result[i] = VMInstruction::Goto(addr);
+            } else if result[i] == VMInstruction::IfGoto(0) {
+                result[i] = VMInstruction::IfGoto(addr);
             } else {
                 unreachable!();
             }
@@ -91,14 +96,14 @@ pub fn parse(code: &str) -> Result<Vec<Instruction>, Error> {
 
 fn function(
     tokenizer: &mut Tokenizer<Token>,
-    result: &mut Vec<Instruction>,
+    result: &mut Vec<VMInstruction>,
     functions: &mut HashMap<String, (usize, usize)>,
 ) -> Result<(), Error> {
     tokenizer.next();
     if let Token::Name(name) = tokenizer.expect(Token::Name(String::new()))? {
         let num = get_num(tokenizer)?;
         functions.insert(name.clone(), (num, result.len()));
-        result.push(Instruction::Function(name, num));
+        result.push(VMInstruction::Function(name, num));
         return Ok(());
     } else {
         unreachable!();
@@ -107,14 +112,14 @@ fn function(
 
 fn call(
     tokenizer: &mut Tokenizer<Token>,
-    result: &mut Vec<Instruction>,
+    result: &mut Vec<VMInstruction>,
     functions: &mut HashMap<String, (usize, usize)>,
 ) -> Result<(), Error> {
     tokenizer.next();
     if let Token::Name(name) = tokenizer.expect(Token::Name(String::new()))? {
         let _num = get_num(tokenizer)?; // ????????????????????
         if let Some((argc, adder)) = functions.get(&name) {
-            result.push(Instruction::Call(*adder, *argc));
+            result.push(VMInstruction::Call(*adder, *argc));
             return Ok(());
         } else {
             return Err(tokenizer.error(&format!("can not finde labal {}", name)));
@@ -126,13 +131,13 @@ fn call(
 
 fn label(
     tokenizer: &mut Tokenizer<Token>,
-    result: &mut Vec<Instruction>,
+    result: &mut Vec<VMInstruction>,
     labels: &mut HashMap<String, usize>,
 ) -> Result<(), Error> {
     tokenizer.next();
     if let Some(Token::Name(name)) = tokenizer.current() {
         labels.insert(name.clone(), result.len());
-        result.push(Instruction::Label(name));
+        result.push(VMInstruction::Label(name));
         return Ok(());
     } else {
         tokenizer.expect(Token::Name(String::new()))?;
@@ -142,7 +147,7 @@ fn label(
 
 fn goto(
     tokenizer: &mut Tokenizer<Token>,
-    result: &mut Vec<Instruction>,
+    result: &mut Vec<VMInstruction>,
     labels: &mut HashMap<String, usize>,
     set_label: &mut Vec<(String, usize)>,
     is_if: bool,
@@ -151,16 +156,16 @@ fn goto(
     if let Some(Token::Name(name)) = tokenizer.current() {
         if let Some(&addr) = labels.get(&name) {
             result.push(if is_if {
-                Instruction::IfGoto(addr)
+                VMInstruction::IfGoto(addr)
             } else {
-                Instruction::Goto(addr)
+                VMInstruction::Goto(addr)
             });
         } else {
             set_label.push((name, result.len()));
             result.push(if is_if {
-                Instruction::IfGoto(0)
+                VMInstruction::IfGoto(0)
             } else {
-                Instruction::Goto(0)
+                VMInstruction::Goto(0)
             });
         }
         return Ok(());
@@ -170,15 +175,15 @@ fn goto(
     }
 }
 
-fn pop(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<Instruction>) -> Result<(), Error> {
+fn pop(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<VMInstruction>) -> Result<(), Error> {
     tokenizer.next();
     let seg = get_seg(tokenizer)?;
     let addr = get_num(tokenizer)?;
-    result.push(Instruction::Pop(seg, addr));
+    result.push(VMInstruction::Pop(seg, addr));
     Ok(())
 }
 
-fn push(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<Instruction>) -> Result<(), Error> {
+fn push(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<VMInstruction>) -> Result<(), Error> {
     tokenizer.next();
 
     if tokenizer.is(Token::Constant) {
@@ -189,12 +194,12 @@ fn push(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<Instruction>) -> Resu
         } else {
             get_num(tokenizer)? as isize
         };
-        result.push(Instruction::PushConst(value));
+        result.push(VMInstruction::PushConst(value));
         Ok(())
     } else {
         let seg = get_seg(tokenizer)?;
         let addr = get_num(tokenizer)?;
-        result.push(Instruction::Push(seg, addr));
+        result.push(VMInstruction::Push(seg, addr));
         Ok(())
     }
 }

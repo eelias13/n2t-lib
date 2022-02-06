@@ -1,4 +1,4 @@
-use super::{Instruction, Segment};
+use super::{Segment, VMInstruction};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -14,13 +14,13 @@ pub struct JackVM {
     static_seg: HashMap<usize, isize>,
 
     program_counter: usize,
-    program: Vec<Instruction>,
+    program: Vec<VMInstruction>,
 
     is_runing: bool,
 }
 
 impl JackVM {
-    pub fn new(program: Vec<Instruction>) -> Self {
+    pub fn new(program: Vec<VMInstruction>) -> Self {
         Self {
             is_runing: program.len() != 0,
 
@@ -50,38 +50,38 @@ impl JackVM {
         }
     }
 
-    pub fn execute(&mut self, instruction: Instruction) {
+    pub fn execute(&mut self, instruction: VMInstruction) {
         match instruction {
-            Instruction::Push(seg, addr) => self.push(seg, addr),
-            Instruction::PushConst(value) => self.stack.push(value),
-            Instruction::Pop(seg, addr) => {
+            VMInstruction::Push(seg, addr) => self.push(seg, addr),
+            VMInstruction::PushConst(value) => self.stack.push(value),
+            VMInstruction::Pop(seg, addr) => {
                 if let Some(val) = self.stack_pop() {
                     self.get_seg(seg).insert(addr, val);
                 }
             }
 
-            Instruction::Add => {
+            VMInstruction::Add => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
                         self.stack.push(val1 + val2);
                     }
                 }
             }
-            Instruction::Sub => {
+            VMInstruction::Sub => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
                         self.stack.push(val1 - val2);
                     }
                 }
             }
-            Instruction::And => {
+            VMInstruction::And => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
                         self.stack.push(val1 & val2);
                     }
                 }
             }
-            Instruction::Or => {
+            VMInstruction::Or => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
                         self.stack.push(val1 | val2);
@@ -89,32 +89,32 @@ impl JackVM {
                 }
             }
 
-            Instruction::Neg => {
+            VMInstruction::Neg => {
                 if let Some(val) = self.stack_pop() {
                     self.stack.push(!val);
                 }
             }
-            Instruction::Not => {
+            VMInstruction::Not => {
                 if let Some(val) = self.stack_pop() {
                     self.stack.push(!val);
                 }
             }
 
-            Instruction::Eq => {
+            VMInstruction::Eq => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
                         self.stack.push(if val1 == val2 { 0 } else { 1 });
                     }
                 }
             }
-            Instruction::Gt => {
+            VMInstruction::Gt => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
                         self.stack.push(if val1 > val2 { 0 } else { 1 });
                     }
                 }
             }
-            Instruction::Lt => {
+            VMInstruction::Lt => {
                 if let Some(val1) = self.stack_pop() {
                     if let Some(val2) = self.stack_pop() {
                         self.stack.push(if val1 < val2 { 0 } else { 1 });
@@ -122,19 +122,19 @@ impl JackVM {
                 }
             }
 
-            Instruction::Function(_, _) => todo!(),
-            Instruction::Call(addr, argc) => todo!(),
-            Instruction::Return => todo!(),
+            VMInstruction::Function(_, _) => todo!(),
+            VMInstruction::Call(addr, argc) => todo!(),
+            VMInstruction::Return => todo!(),
 
-            Instruction::Label(_) => (),
-            Instruction::IfGoto(addr) => {
+            VMInstruction::Label(_) => (),
+            VMInstruction::IfGoto(addr) => {
                 if let Some(val) = self.stack_pop() {
                     if val == 0 {
                         self.program_counter = addr;
                     }
                 }
             }
-            Instruction::Goto(addr) => self.program_counter = addr,
+            VMInstruction::Goto(addr) => self.program_counter = addr,
         }
     }
 

@@ -1,4 +1,4 @@
-use n2t_lib::vm::{parse, Instruction, Segment};
+use n2t_lib::vm::{parse, Segment, VMInstruction};
 
 #[test]
 fn push() {
@@ -10,9 +10,9 @@ fn push() {
     assert_eq!(
         parse(code),
         Ok(vec![
-            Instruction::PushConst(2),
-            Instruction::Push(Segment::This, 4),
-            Instruction::PushConst(-13),
+            VMInstruction::PushConst(2),
+            VMInstruction::Push(Segment::This, 4),
+            VMInstruction::PushConst(-13),
         ])
     );
 }
@@ -27,9 +27,9 @@ fn pop() {
     assert_eq!(
         parse(code),
         Ok(vec![
-            Instruction::Pop(Segment::That, 1),
-            Instruction::Pop(Segment::Local, 3),
-            Instruction::Pop(Segment::Argument, 2),
+            VMInstruction::Pop(Segment::That, 1),
+            VMInstruction::Pop(Segment::Local, 3),
+            VMInstruction::Pop(Segment::Argument, 2),
         ])
     );
 }
@@ -50,15 +50,15 @@ fn alu() {
     assert_eq!(
         parse(code),
         Ok(vec![
-            Instruction::Add,
-            Instruction::Sub,
-            Instruction::And,
-            Instruction::Or,
-            Instruction::Eq,
-            Instruction::Gt,
-            Instruction::Lt,
-            Instruction::Neg,
-            Instruction::Not,
+            VMInstruction::Add,
+            VMInstruction::Sub,
+            VMInstruction::And,
+            VMInstruction::Or,
+            VMInstruction::Eq,
+            VMInstruction::Gt,
+            VMInstruction::Lt,
+            VMInstruction::Neg,
+            VMInstruction::Not,
         ])
     );
 }
@@ -73,9 +73,9 @@ fn goto() {
     assert_eq!(
         parse(code),
         Ok(vec![
-            Instruction::Label("loop".to_string()),
-            Instruction::Goto(0),
-            Instruction::IfGoto(0),
+            VMInstruction::Label("loop".to_string()),
+            VMInstruction::Goto(0),
+            VMInstruction::IfGoto(0),
         ])
     );
 }
@@ -90,9 +90,9 @@ fn function() {
     assert_eq!(
         parse(code),
         Ok(vec![
-            Instruction::Function("main".to_string(), 3),
-            Instruction::Return,
-            Instruction::Call(0, 3),
+            VMInstruction::Function("main".to_string(), 3),
+            VMInstruction::Return,
+            VMInstruction::Call(0, 3),
         ])
     );
 }
@@ -124,26 +124,26 @@ fn fibonacci() {
     assert_eq!(
         parse(code),
         Ok(vec![
-            Instruction::Function("Main.fibonacci".to_string(), 0),
-            Instruction::Push(Segment::Argument, 0),
-            Instruction::PushConst(2),
-            Instruction::Lt,
-            Instruction::IfGoto(6),
-            Instruction::Goto(9),
-            Instruction::Label("IF_TRUE".to_string()),
-            Instruction::Push(Segment::Argument, 0),
-            Instruction::Return,
-            Instruction::Label("IF_FALSE".to_string()),
-            Instruction::Push(Segment::Argument, 0),
-            Instruction::PushConst(2),
-            Instruction::Sub,
-            Instruction::Call(0, 0),
-            Instruction::Push(Segment::Argument, 0),
-            Instruction::PushConst(1),
-            Instruction::Sub,
-            Instruction::Call(0, 0),
-            Instruction::Add,
-            Instruction::Return
+            VMInstruction::Function("Main.fibonacci".to_string(), 0),
+            VMInstruction::Push(Segment::Argument, 0),
+            VMInstruction::PushConst(2),
+            VMInstruction::Lt,
+            VMInstruction::IfGoto(6),
+            VMInstruction::Goto(9),
+            VMInstruction::Label("IF_TRUE".to_string()),
+            VMInstruction::Push(Segment::Argument, 0),
+            VMInstruction::Return,
+            VMInstruction::Label("IF_FALSE".to_string()),
+            VMInstruction::Push(Segment::Argument, 0),
+            VMInstruction::PushConst(2),
+            VMInstruction::Sub,
+            VMInstruction::Call(0, 0),
+            VMInstruction::Push(Segment::Argument, 0),
+            VMInstruction::PushConst(1),
+            VMInstruction::Sub,
+            VMInstruction::Call(0, 0),
+            VMInstruction::Add,
+            VMInstruction::Return
         ])
     );
 }
@@ -165,16 +165,16 @@ fn simple_function() {
     assert_eq!(
         parse(code),
         Ok(vec![
-            Instruction::Function("SimpleFunction.test".to_string(), 2),
-            Instruction::Push(Segment::Local, 0),
-            Instruction::Push(Segment::Local, 1),
-            Instruction::Add,
-            Instruction::Not,
-            Instruction::Push(Segment::Argument, 0),
-            Instruction::Add,
-            Instruction::Push(Segment::Argument, 1),
-            Instruction::Sub,
-            Instruction::Return
+            VMInstruction::Function("SimpleFunction.test".to_string(), 2),
+            VMInstruction::Push(Segment::Local, 0),
+            VMInstruction::Push(Segment::Local, 1),
+            VMInstruction::Add,
+            VMInstruction::Not,
+            VMInstruction::Push(Segment::Argument, 0),
+            VMInstruction::Add,
+            VMInstruction::Push(Segment::Argument, 1),
+            VMInstruction::Sub,
+            VMInstruction::Return
         ])
     );
 }

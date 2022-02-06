@@ -1,4 +1,4 @@
-use crate::cpu::{Comp, Dest, Instruction, Jump};
+use crate::cpu::{Comp, Dest, CPUInstruction, Jump};
 
 pub struct HackCpu {
     d_reg: i16,
@@ -6,11 +6,11 @@ pub struct HackCpu {
     pc: usize,
 
     ram: Vec<i16>,
-    rom: Vec<Instruction>,
+    rom: Vec<CPUInstruction>,
 }
 
 impl HackCpu {
-    pub fn new(program: Vec<Instruction>) -> Self {
+    pub fn new(program: Vec<CPUInstruction>) -> Self {
         Self {
             d_reg: 0,
             a_reg: 0,
@@ -23,8 +23,8 @@ impl HackCpu {
 
     pub fn step(&mut self) {
         match self.rom[self.pc].clone() {
-            Instruction::AInstruc(val) => self.a_reg = val,
-            Instruction::CInstruc(comp, dest, jump) => {
+            CPUInstruction::AInstruc(val) => self.a_reg = val,
+            CPUInstruction::CInstruc(comp, dest, jump) => {
                 let val = self.compute(comp);
                 self.store_dest(dest, val);
                 self.jump(jump, val);
