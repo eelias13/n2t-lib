@@ -1,11 +1,40 @@
 use super::{Segment, VMInstruction};
-use crate::cpu::CPUInstruction;
+use crate::cpu::{CPUInstruction, Comp, Dest};
 use logos::{Lexer, Logos};
 use std::collections::HashMap;
 use tokenizer::{Error, Tokenizer, TypeEq};
 
-pub fn vm2asm(instruc: Vec<VMInstruction>) -> Vec<CPUInstruction> {
-    Vec::new()
+pub fn vm2asm(instrucs: Vec<VMInstruction>) -> Vec<CPUInstruction> {
+    let mut asm = Vec::new();
+
+    for instruc in instrucs {
+        match instruc {
+            VMInstruction::Push(seg, value) => (),
+            VMInstruction::Pop(seg, value) => (),
+            VMInstruction::PushConst(value) => (),
+            VMInstruction::Add => (),
+            VMInstruction::Sub => (),
+            VMInstruction::Neg => (),
+            VMInstruction::Eq => (),
+            VMInstruction::Gt => (),
+            VMInstruction::Lt => (),
+            VMInstruction::And => (),
+            VMInstruction::Or => (),
+            VMInstruction::Not => (),
+            VMInstruction::Label(name) => (),
+            VMInstruction::Goto(addr) => asm.push(CPUInstruction::CInstruc(
+                Comp::Zero,
+                Dest::Null,
+                crate::cpu::Jump::JMP,
+            )),
+            VMInstruction::IfGoto(addr) => (),
+            VMInstruction::Function(name, n_var) => (),
+            VMInstruction::Call(addr, n_arg) => (),
+            VMInstruction::Return => (),
+        }
+    }
+
+    asm
 }
 
 pub fn parse(code: &str) -> Result<Vec<VMInstruction>, Error> {
@@ -79,10 +108,11 @@ pub fn parse(code: &str) -> Result<Vec<VMInstruction>, Error> {
 
     for (name, i) in set_label {
         if let Some(&addr) = labels.get(&name) {
-            if result[i] == VMInstruction::Goto(0) {
-                result[i] = VMInstruction::Goto(addr);
-            } else if result[i] == VMInstruction::IfGoto(0) {
-                result[i] = VMInstruction::IfGoto(addr);
+            let addr = addr as usize;
+            if result[i as usize] == VMInstruction::Goto(0) {
+                result[i as usize] = VMInstruction::Goto(addr);
+            } else if result[i as usize] == VMInstruction::IfGoto(0) {
+                result[i as usize] = VMInstruction::IfGoto(addr);
             } else {
                 unreachable!();
             }
@@ -101,7 +131,7 @@ fn function(
 ) -> Result<(), Error> {
     tokenizer.next();
     if let Token::Name(name) = tokenizer.expect(Token::Name(String::new()))? {
-        let num = get_num(tokenizer)?;
+        let num = get_num(tokenizer)? as usize;
         functions.insert(name.clone(), (num, result.len()));
         result.push(VMInstruction::Function(name, num));
         return Ok(());
@@ -118,8 +148,8 @@ fn call(
     tokenizer.next();
     if let Token::Name(name) = tokenizer.expect(Token::Name(String::new()))? {
         let _num = get_num(tokenizer)?; // ????????????????????
-        if let Some((argc, adder)) = functions.get(&name) {
-            result.push(VMInstruction::Call(*adder, *argc));
+        if let Some(&(argc, adder)) = functions.get(&name) {
+            result.push(VMInstruction::Call(adder, argc));
             return Ok(());
         } else {
             return Err(tokenizer.error(&format!("can not finde labal {}", name)));
@@ -132,11 +162,11 @@ fn call(
 fn label(
     tokenizer: &mut Tokenizer<Token>,
     result: &mut Vec<VMInstruction>,
-    labels: &mut HashMap<String, usize>,
+    labels: &mut HashMap<String, u16>,
 ) -> Result<(), Error> {
     tokenizer.next();
     if let Some(Token::Name(name)) = tokenizer.current() {
-        labels.insert(name.clone(), result.len());
+        labels.insert(name.clone(), result.len() as u16);
         result.push(VMInstruction::Label(name));
         return Ok(());
     } else {
@@ -148,20 +178,20 @@ fn label(
 fn goto(
     tokenizer: &mut Tokenizer<Token>,
     result: &mut Vec<VMInstruction>,
-    labels: &mut HashMap<String, usize>,
-    set_label: &mut Vec<(String, usize)>,
+    labels: &mut HashMap<String, u16>,
+    set_label: &mut Vec<(String, u16)>,
     is_if: bool,
 ) -> Result<(), Error> {
     tokenizer.next();
     if let Some(Token::Name(name)) = tokenizer.current() {
         if let Some(&addr) = labels.get(&name) {
             result.push(if is_if {
-                VMInstruction::IfGoto(addr)
+                VMInstruction::IfGoto(addr as usize)
             } else {
-                VMInstruction::Goto(addr)
+                VMInstruction::Goto(addr as usize)
             });
         } else {
-            set_label.push((name, result.len()));
+            set_label.push((name, result.len() as u16));
             result.push(if is_if {
                 VMInstruction::IfGoto(0)
             } else {
@@ -188,13 +218,8 @@ fn push(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<VMInstruction>) -> Re
 
     if tokenizer.is(Token::Constant) {
         tokenizer.next();
-        let value = if tokenizer.is(Token::MinusSign) {
-            tokenizer.next();
-            get_num(tokenizer)? as isize * -1
-        } else {
-            get_num(tokenizer)? as isize
-        };
-        result.push(VMInstruction::PushConst(value));
+        let value = get_num(tokenizer)? as isize;
+        result.push(VMInstruction::PushConst(value as i16));
         Ok(())
     } else {
         let seg = get_seg(tokenizer)?;
@@ -204,7 +229,7 @@ fn push(tokenizer: &mut Tokenizer<Token>, result: &mut Vec<VMInstruction>) -> Re
     }
 }
 
-fn get_num(tokenizer: &mut Tokenizer<Token>) -> Result<usize, Error> {
+fn get_num(tokenizer: &mut Tokenizer<Token>) -> Result<i16, Error> {
     if let Some(Token::Number(num)) = tokenizer.current() {
         return Ok(num);
     } else {
@@ -296,14 +321,13 @@ enum Token {
     #[token("\t", ignore)]
     #[token(" ", ignore)]
     #[token("\n", ignore)]
+    #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)] 
     Ignore((usize, Option<String>)),
 
     #[regex(r"[a-zA-Z][a-zA-Z|0-9|\.|_]+", |lexer| lexer.slice().parse())]
     Name(String),
     #[regex(r"[0-9]+", |lexer| lexer.slice().parse())]
-    Number(usize),
-    #[token("-")]
-    MinusSign,
+    Number(i16),
 
     #[error]
     Unknown,
@@ -340,7 +364,6 @@ impl TypeEq for Token {
             (Token::Ignore(_), Token::Ignore(_)) => true,
             (Token::Name(_), Token::Name(_)) => true,
             (Token::Number(_), Token::Number(_)) => true,
-            (Token::MinusSign, Token::MinusSign) => true,
             _ => false,
         }
     }
@@ -350,8 +373,8 @@ fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
     let slice = lexer.slice();
     match slice {
         " " => Some((0, None)),
-        "\n" => Some((0, Some("newline".to_string()))),
+        "\n" => Some((1, Some("newline".to_string()))),
         "\t" => Some((0, None)),
-        _ => Some((0, Some(slice.to_string()))),
+        _ => Some((slice.matches("\n").count(), Some(slice.to_string()))),
     }
 }

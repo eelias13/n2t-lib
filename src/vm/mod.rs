@@ -18,9 +18,9 @@ pub enum Segment {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VMInstruction {
-    Push(Segment, usize),
-    Pop(Segment, usize),
-    PushConst(isize),
+    Push(Segment, i16),
+    Pop(Segment, i16),
+    PushConst(i16),
     Add,
     Sub,
     Neg,

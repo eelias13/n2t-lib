@@ -17,7 +17,7 @@ fn expect(got: Option<Token>, expected: Token) -> Result<Token, Error> {
 }
 
 pub fn parse(code: &str) -> Result<Vec<ChipDef<ComponentMap>>, Error> {
-    let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore(None)]);
+    let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
 
     let mut chips = Vec::new();
 
@@ -197,7 +197,8 @@ enum Token {
     #[token("\t", ignore)]
     #[token(" ", ignore)]
     #[token("\n", ignore)]
-    Ignore(Option<String>),
+    #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)] 
+    Ignore((usize, Option<String>)),
 
     #[regex(r"[a-zA-Z_$][a-zA-Z_$0-9]+", |lex| lex.slice().parse())]
     #[regex(r"[a-zA-Z]", |lex| lex.slice().parse())]
@@ -222,12 +223,12 @@ impl TypeEq for Token {
     }
 }
 
-fn ignore(lex: &mut Lexer<Token>) -> Option<Option<String>> {
-    let slice = lex.slice();
+fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
+    let slice = lexer.slice();
     match slice {
-        " " => Some(None),
-        "\n" => Some(Some("newline".to_string())),
-        "\t" => Some(None),
-        _ => Some(Some(slice.to_string())),
+        " " => Some((0, None)),
+        "\n" => Some((0, Some("newline".to_string()))),
+        "\t" => Some((0, None)),
+        _ => Some((slice.matches("\n").count(), Some(slice.to_string()))),
     }
 }

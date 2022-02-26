@@ -2,27 +2,27 @@ use n2t_lib::vm::{parse, Segment, VMInstruction};
 
 #[test]
 fn push() {
-    let code = r"
+    let code = r#"
     push constant 2
     push this 4
-    push constant -13";
+    push constant 13"#;
 
     assert_eq!(
         parse(code),
         Ok(vec![
             VMInstruction::PushConst(2),
             VMInstruction::Push(Segment::This, 4),
-            VMInstruction::PushConst(-13),
+            VMInstruction::PushConst(13),
         ])
     );
 }
 
 #[test]
 fn pop() {
-    let code = r"
+    let code = r#"
     pop that 1
     pop local 3
-    pop argument 2";
+    pop argument 2"#;
 
     assert_eq!(
         parse(code),
@@ -36,7 +36,7 @@ fn pop() {
 
 #[test]
 fn alu() {
-    let code = r"
+    let code = r#"
     add
     sub
     and
@@ -45,7 +45,7 @@ fn alu() {
     gt
     lt
     neg
-    not";
+    not"#;
 
     assert_eq!(
         parse(code),
@@ -65,10 +65,10 @@ fn alu() {
 
 #[test]
 fn goto() {
-    let code = r"
+    let code = r#"
     label loop
     goto loop
-    if-goto loop";
+    if-goto loop"#;
 
     assert_eq!(
         parse(code),
@@ -82,10 +82,10 @@ fn goto() {
 
 #[test]
 fn function() {
-    let code = r"
+    let code = r#"
     function main 3
     return
-    call main 1";
+    call main 1"#;
 
     assert_eq!(
         parse(code),
@@ -99,7 +99,7 @@ fn function() {
 
 #[test]
 fn fibonacci() {
-    let code = r"
+    let code = r#"
     function Main.fibonacci 0
     push argument 0
     push constant 2
@@ -119,7 +119,7 @@ fn fibonacci() {
     sub
     call Main.fibonacci 1  
     add                    
-    return";
+    return"#;
 
     assert_eq!(
         parse(code),
@@ -150,7 +150,13 @@ fn fibonacci() {
 
 #[test]
 fn simple_function() {
-    let code = r"
+    let code = r#"
+    // This file is part of www.nand2tetris.org
+    // and the book "The Elements of Computing Systems"
+    // by Nisan and Schocken, MIT Press.
+    // File name: projects/08/FunctionCalls/SimpleFunction/SimpleFunction.vm
+    
+    // Performs a simple calculation and returns the result.
     function SimpleFunction.test 2
     push local 0
     push local 1
@@ -160,7 +166,8 @@ fn simple_function() {
     add
     push argument 1
     sub
-    return";
+    return
+    "#;
 
     assert_eq!(
         parse(code),

@@ -298,6 +298,7 @@ enum Token {
     #[token("\t", ignore)]
     #[token(" ", ignore)]
     #[token("\n", ignore)]
+    #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)]
     Ignore((usize, Option<String>)),
 
     #[regex(r"@[a-zA-Z][a-zA-Z|0-9|\.|_]+", name)]
@@ -351,6 +352,6 @@ fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
         " " => Some((0, None)),
         "\n" => Some((0, Some("newline".to_string()))),
         "\t" => Some((0, None)),
-        _ => Some((0, Some(slice.to_string()))),
+        _ => Some((slice.matches("\n").count(), Some(slice.to_string()))),
     }
 }

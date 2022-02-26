@@ -52,11 +52,11 @@ impl JackVM {
 
     pub fn execute(&mut self, instruction: VMInstruction) {
         match instruction {
-            VMInstruction::Push(seg, addr) => self.push(seg, addr),
-            VMInstruction::PushConst(value) => self.stack.push(value),
+            VMInstruction::Push(seg, addr) => self.push(seg, addr as usize),
+            VMInstruction::PushConst(value) => self.stack.push(value as isize),
             VMInstruction::Pop(seg, addr) => {
                 if let Some(val) = self.stack_pop() {
-                    self.get_seg(seg).insert(addr, val);
+                    self.get_seg(seg).insert(addr as usize, val);
                 }
             }
 
@@ -130,11 +130,11 @@ impl JackVM {
             VMInstruction::IfGoto(addr) => {
                 if let Some(val) = self.stack_pop() {
                     if val == 0 {
-                        self.program_counter = addr;
+                        self.program_counter = addr as usize;
                     }
                 }
             }
-            VMInstruction::Goto(addr) => self.program_counter = addr,
+            VMInstruction::Goto(addr) => self.program_counter = addr as usize,
         }
     }
 
