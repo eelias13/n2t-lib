@@ -34,6 +34,9 @@ pub fn ml2asm(ml: Vec<u16>) -> Result<Vec<CPUInstruction>, String> {
 pub fn str2ml(hack: &str) -> Result<Vec<u16>, String> {
     let mut ml = Vec::new();
     let hack = hack.replace("\r\n", "\n");
+    let hack = hack.replace("\t", "");
+    let hack = hack.replace(" ", "");
+
     for (i, line) in hack.split("\n").enumerate() {
         if line.is_empty() {
             continue;
@@ -44,7 +47,7 @@ pub fn str2ml(hack: &str) -> Result<Vec<u16>, String> {
                 bool_vec.push(true);
             } else if c == '0' {
                 bool_vec.push(false);
-            } else if c != ' ' && c != '\t' {
+            } else {
                 return Err(format!("unexpectet char {} in line {}", c, i));
             }
         }
