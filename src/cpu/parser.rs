@@ -7,7 +7,7 @@ pub fn asm2ml(asm: Vec<CPUInstruction>) -> Vec<u16> {
     let mut ml = Vec::new();
     for instrc in asm {
         match instrc {
-            CPUInstruction::AInstruc(val) => ml.push((val & 0 << 15) as u16),
+            CPUInstruction::AInstruc(val) => ml.push((val & 0b0111111111111111) as u16),
             CPUInstruction::CInstruc(comp, dest, jump) => {
                 ml.push(0b111 << 13 | (comp as u16) << 6 | (dest as u16) << 3 | jump as u16)
             }
@@ -20,15 +20,54 @@ pub fn ml2asm(ml: Vec<u16>) -> Result<Vec<CPUInstruction>, String> {
     let mut asm = Vec::new();
     for i in ml {
         if i & 0b1000000000000000 == 0b1000000000000000 {
-            let comp = ((6 >> (i & 0b0001111111000000)) as u8).try_into()?;
-            let dest = ((3 >> (i & 0b0000000000111000)) as u8).try_into()?;
-            let jump = ((0 >> (i & 0b0000000000000111)) as u8).try_into()?;
+            let jump = (((i & 0b0000000000000111) >> 0) as u8).try_into()?;
+            let dest = (((i & 0b0000000000111000) >> 3) as u8).try_into()?;
+            let comp = (((i & 0b0001111111000000) >> 6) as u8).try_into()?;
             asm.push(CPUInstruction::CInstruc(comp, dest, jump))
         } else {
             asm.push(CPUInstruction::AInstruc(i as i16));
         }
     }
     Ok(asm)
+}
+
+pub fn str2ml(hack: &str) -> Result<Vec<u16>, String> {
+    let mut ml = Vec::new();
+    let hack = hack.replace("\r\n", "\n");
+    for (i, line) in hack.split("\n").enumerate() {
+        if line.is_empty() {
+            continue;
+        }
+        let mut bool_vec = Vec::new();
+        for c in line.chars() {
+            if c == '1' {
+                bool_vec.push(true);
+            } else if c == '0' {
+                bool_vec.push(false);
+            } else if c != ' ' && c != '\t' {
+                return Err(format!("unexpectet char {} in line {}", c, i));
+            }
+        }
+
+        if bool_vec.len() != 16 {
+            return Err(format!(
+                "unexpectet len {} in line {} expectet 16 0 or 1's",
+                bool_vec.len(),
+                i
+            ));
+        }
+
+        let mut num = 0;
+        for (i, &val) in bool_vec.iter().enumerate() {
+            if val {
+                num += 1 << (15 - i);
+            }
+        }
+
+        ml.push(num);
+    }
+
+    Ok(ml)
 }
 
 pub fn parse(code: &str) -> Result<Vec<CPUInstruction>, Error> {
@@ -55,6 +94,13 @@ pub fn parse(code: &str) -> Result<Vec<CPUInstruction>, Error> {
     labals.insert(String::from("R14"), 14);
     labals.insert(String::from("R15"), 15);
     labals.insert(String::from("R16"), 16);
+
+    labals.insert(String::from("SP"), 0);
+    labals.insert(String::from("LCL"), 1);
+    labals.insert(String::from("ARG"), 2);
+    labals.insert(String::from("THIS"), 3);
+    labals.insert(String::from("THAT"), 4);
+    labals.insert(String::from("SCREEN"), 16384);
 
     while let Some(token) = tokenizer.next() {
         match token {
@@ -92,36 +138,40 @@ pub fn parse(code: &str) -> Result<Vec<CPUInstruction>, Error> {
     Ok(asm)
 }
 
+fn get_token(token: Option<Token>, tokenizer: &Tokenizer<Token>) -> Result<Token, Error> {
+    if let Some(token) = token {
+        Ok(token)
+    } else {
+        Err(tokenizer.error("unexpected end of file"))
+    }
+}
+
 fn c_instruc(tokenizer: &mut Tokenizer<Token>) -> Result<CPUInstruction, Error> {
-    let token = tokenizer.current().unwrap();
+    let token = get_token(tokenizer.current(), tokenizer)?;
 
     let dest;
     let comp;
     let jump;
 
-    if let Some(t) = tokenizer.peek() {
-        if t == Token::Eq {
-            dest = get_dest(token.clone());
-            tokenizer.next();
-        } else {
-            dest = Dest::Null;
-        }
-    } else {
-        return Err(tokenizer.error("unexpected end of file"));
-    }
-
-    if let Some(token) = tokenizer.next() {
-        comp = match get_comp(token) {
+    let t = get_token(tokenizer.peek(), tokenizer)?;
+    if t == Token::Eq {
+        dest = get_dest(token.clone());
+        tokenizer.expect_next(Token::Eq)?;
+        comp = match get_comp(get_token(tokenizer.next(), tokenizer)?) {
             Ok(val) => val,
             Err(msg) => return Err(tokenizer.error(&msg)),
         }
     } else {
-        return Err(tokenizer.error("unexpected end of file"));
+        dest = Dest::Null;
+        comp = match get_comp(token) {
+            Ok(val) => val,
+            Err(msg) => return Err(tokenizer.error(&msg)),
+        }
     }
 
     if let Some(token) = tokenizer.peek() {
         if token == Token::Semic {
-            tokenizer.next();
+            tokenizer.expect_next(Token::Semic)?;
             if let Some(token) = tokenizer.next() {
                 jump = get_jump(token);
             } else {
@@ -192,7 +242,7 @@ fn get_comp(token: Token) -> Result<Comp, String> {
         Token::MMinusD => Ok(Comp::MMinusD),
         Token::DAndM => Ok(Comp::DAndM),
         Token::DOrM => Ok(Comp::DOrM),
-        _ => Err("expected Comp".to_string()),
+        _ => Err(format!("expected Comp but got {:?}", token)),
     }
 }
 
@@ -297,15 +347,16 @@ enum Token {
 
     #[token("\t", ignore)]
     #[token(" ", ignore)]
+    #[token("\r\n", ignore)]
     #[token("\n", ignore)]
     #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)]
     Ignore((usize, Option<String>)),
 
-    #[regex(r"@[a-zA-Z][a-zA-Z|0-9|\.|_]+", name)]
+    #[regex(r"@[a-zA-Z][a-zA-Z|0-9|\.|_|$]+", name)]
     Name(String),
     #[regex(r"@[0-9]+", number)]
     Number(usize),
-    #[regex(r"\([a-zA-Z][a-zA-Z|0-9|\.|_]+\)", labal)]
+    #[regex(r"\([a-zA-Z][a-zA-Z|0-9|\.|_|$]+\)", labal)]
     Labal(String),
 
     #[error]
@@ -326,19 +377,19 @@ impl TypeEq for Token {
 
 fn name(lexer: &mut Lexer<Token>) -> Option<String> {
     let slice = lexer.slice();
-    let slice = &slice[1..slice.len() - 1];
+    let slice = &slice[1..slice.len()];
     Some(slice.to_string())
 }
 
 fn labal(lexer: &mut Lexer<Token>) -> Option<String> {
     let slice = lexer.slice();
-    let slice = &slice[1..slice.len() - 2];
+    let slice = &slice[1..slice.len() - 1];
     Some(slice.to_string())
 }
 
 fn number(lexer: &mut Lexer<Token>) -> Option<usize> {
     let slice = lexer.slice();
-    let slice = &slice[1..slice.len() - 1];
+    let slice = &slice[1..slice.len()];
     if let Ok(val) = slice.parse() {
         Some(val)
     } else {
@@ -353,5 +404,27 @@ fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
         "\n" => Some((0, Some("newline".to_string()))),
         "\t" => Some((0, None)),
         _ => Some((slice.matches("\n").count(), Some(slice.to_string()))),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn tokens() {
+        let code = r"
+    @abc
+    @5
+    (test)
+    A=M+D
+    ";
+        let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
+        assert_eq!(tokenizer.next(), Some(Token::Name("abc".to_string())));
+        assert_eq!(tokenizer.next(), Some(Token::Number(5)));
+        assert_eq!(tokenizer.next(), Some(Token::Labal("test".to_string())));
+        assert_eq!(tokenizer.next(), Some(Token::A));
+        assert_eq!(tokenizer.next(), Some(Token::Eq));
+        assert_eq!(tokenizer.next(), Some(Token::DPulsM));
     }
 }

@@ -2,7 +2,7 @@ mod hack_cpu;
 mod parser;
 
 pub use hack_cpu::HackCpu;
-pub use parser::{asm2ml, ml2asm, parse};
+pub use parser::{asm2ml, ml2asm, parse, str2ml};
 
 #[repr(u8)]
 #[derive(Debug, Clone, PartialEq)]
@@ -19,8 +19,8 @@ pub enum Comp {
     MinusA = 0b0110011,
     DPulsOne = 0b0011111,
     APulsOne = 0b0110111,
-    DMinusOne = 0b0001110,
-    AMinusOne = 0b0110010,
+    DMinusOne = 0b0110010, // is swapt to pass pong ???
+    AMinusOne = 0b0001110, //is swapt to pass pong ???
     DPulsA = 0b0000010,
     DMinusA = 0b0010011,
     AMinusD = 0b0000111,
@@ -53,8 +53,8 @@ impl TryInto<Comp> for u8 {
             0b0110011 => Ok(Comp::MinusA),
             0b0011111 => Ok(Comp::DPulsOne),
             0b0110111 => Ok(Comp::APulsOne),
-            0b0001110 => Ok(Comp::DMinusOne),
-            0b0110010 => Ok(Comp::AMinusOne),
+            0b0110010 => Ok(Comp::DMinusOne), //is swapt to pass pong ???
+            0b0001110 => Ok(Comp::AMinusOne), //is swapt to pass pong ???
             0b0000010 => Ok(Comp::DPulsA),
             0b0010011 => Ok(Comp::DMinusA),
             0b0000111 => Ok(Comp::AMinusD),
