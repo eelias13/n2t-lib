@@ -1,6 +1,8 @@
+mod asm;
 mod jack_vm;
 mod parser;
 
+pub use asm::vm2asm;
 pub use jack_vm::JackVM;
 pub use parser::parse;
 

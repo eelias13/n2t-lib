@@ -1,41 +1,7 @@
 use super::{Segment, VMInstruction};
-use crate::cpu::{CPUInstruction, Comp, Dest};
 use logos::{Lexer, Logos};
 use std::collections::HashMap;
 use tokenizer::{Error, Tokenizer, TypeEq};
-
-pub fn vm2asm(instrucs: Vec<VMInstruction>) -> Vec<CPUInstruction> {
-    let mut asm = Vec::new();
-
-    for instruc in instrucs {
-        match instruc {
-            VMInstruction::Push(seg, value) => (),
-            VMInstruction::Pop(seg, value) => (),
-            VMInstruction::PushConst(value) => (),
-            VMInstruction::Add => (),
-            VMInstruction::Sub => (),
-            VMInstruction::Neg => (),
-            VMInstruction::Eq => (),
-            VMInstruction::Gt => (),
-            VMInstruction::Lt => (),
-            VMInstruction::And => (),
-            VMInstruction::Or => (),
-            VMInstruction::Not => (),
-            VMInstruction::Label(name) => (),
-            VMInstruction::Goto(addr) => asm.push(CPUInstruction::CInstruc(
-                Comp::Zero,
-                Dest::Null,
-                crate::cpu::Jump::JMP,
-            )),
-            VMInstruction::IfGoto(addr) => (),
-            VMInstruction::Function(name, n_var) => (),
-            VMInstruction::Call(addr, n_arg) => (),
-            VMInstruction::Return => (),
-        }
-    }
-
-    asm
-}
 
 pub fn parse(code: &str) -> Result<Vec<VMInstruction>, Error> {
     let mut tokenizer = Tokenizer::new(Token::lexer(code), vec![Token::Ignore((0, None))]);
@@ -321,7 +287,7 @@ enum Token {
     #[token("\t", ignore)]
     #[token(" ", ignore)]
     #[token("\n", ignore)]
-    #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)] 
+    #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)]
     Ignore((usize, Option<String>)),
 
     #[regex(r"[a-zA-Z][a-zA-Z|0-9|\.|_]+", |lexer| lexer.slice().parse())]
