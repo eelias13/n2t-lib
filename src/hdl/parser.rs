@@ -197,6 +197,7 @@ enum Token {
     #[token("\t", ignore)]
     #[token(" ", ignore)]
     #[token("\n", ignore)]
+    #[token("\r\n", ignore)]
     #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)] 
     Ignore((usize, Option<String>)),
 
@@ -227,7 +228,8 @@ fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
     let slice = lexer.slice();
     match slice {
         " " => Some((0, None)),
-        "\n" => Some((0, Some("newline".to_string()))),
+        "\n" => Some((1, Some("newline".to_string()))),
+        "\r\n" => Some((1, Some("newline".to_string()))),
         "\t" => Some((0, None)),
         _ => Some((slice.matches("\n").count(), Some(slice.to_string()))),
     }

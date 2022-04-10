@@ -98,12 +98,13 @@ pub fn parse(code: &str) -> Result<Vec<CPUInstruction>, Error> {
     labals.insert(String::from("R15"), 15);
     labals.insert(String::from("R16"), 16);
 
-    labals.insert(String::from("SP"), 0);
-    labals.insert(String::from("LCL"), 1);
-    labals.insert(String::from("ARG"), 2);
-    labals.insert(String::from("THIS"), 3);
-    labals.insert(String::from("THAT"), 4);
-    labals.insert(String::from("SCREEN"), 16384);
+    labals.insert(String::from("SP"), crate::SP);
+    labals.insert(String::from("LCL"), crate::LCL);
+    labals.insert(String::from("ARG"), crate::ARG);
+    labals.insert(String::from("THIS"), crate::THIS);
+    labals.insert(String::from("THAT"), crate::THAT);
+    labals.insert(String::from("SCREEN"), crate::SCREEN);
+    labals.insert(String::from("KBD"), crate::KBD);
 
     while let Some(token) = tokenizer.next() {
         match token {
@@ -359,7 +360,7 @@ enum Token {
     Name(String),
     #[regex(r"@[0-9]+", number)]
     Number(usize),
-    #[regex(r"\([a-zA-Z][a-zA-Z|0-9|\.|_|$]+\)", labal)]
+    #[regex(r"\([a-zA-Z][a-zA-Z|0-9|\.|_|$]+\)", label)]
     Labal(String),
 
     #[error]
@@ -384,7 +385,7 @@ fn name(lexer: &mut Lexer<Token>) -> Option<String> {
     Some(slice.to_string())
 }
 
-fn labal(lexer: &mut Lexer<Token>) -> Option<String> {
+fn label(lexer: &mut Lexer<Token>) -> Option<String> {
     let slice = lexer.slice();
     let slice = &slice[1..slice.len() - 1];
     Some(slice.to_string())
@@ -404,7 +405,8 @@ fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
     let slice = lexer.slice();
     match slice {
         " " => Some((0, None)),
-        "\n" => Some((0, Some("newline".to_string()))),
+        "\n" => Some((1, Some("newline".to_string()))),
+        "\r\n" => Some((1, Some("newline".to_string()))),
         "\t" => Some((0, None)),
         _ => Some((slice.matches("\n").count(), Some(slice.to_string()))),
     }

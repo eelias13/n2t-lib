@@ -227,7 +227,7 @@ fn get_seg(tokenizer: &mut Tokenizer<Token>) -> Result<Segment, Error> {
     })
 }
 
-#[derive(Logos, Debug, Clone)]
+#[derive(Logos, Debug, Clone, PartialEq)]
 enum Token {
     #[token("push")]
     Push,
@@ -287,6 +287,7 @@ enum Token {
     #[token("\t", ignore)]
     #[token(" ", ignore)]
     #[token("\n", ignore)]
+    #[token("\r\n", ignore)]
     #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)]
     Ignore((usize, Option<String>)),
 
@@ -302,35 +303,10 @@ enum Token {
 impl TypeEq for Token {
     fn type_eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Token::Push, Token::Push) => true,
-            (Token::Pop, Token::Pop) => true,
-            (Token::Add, Token::Add) => true,
-            (Token::Sub, Token::Sub) => true,
-            (Token::Neg, Token::Neg) => true,
-            (Token::Eq, Token::Eq) => true,
-            (Token::Gt, Token::Gt) => true,
-            (Token::Lt, Token::Lt) => true,
-            (Token::And, Token::And) => true,
-            (Token::Or, Token::Or) => true,
-            (Token::Not, Token::Not) => true,
-            (Token::Label, Token::Label) => true,
-            (Token::Goto, Token::Goto) => true,
-            (Token::IfGoto, Token::IfGoto) => true,
-            (Token::Function, Token::Function) => true,
-            (Token::Call, Token::Call) => true,
-            (Token::Return, Token::Return) => true,
-            (Token::This, Token::This) => true,
-            (Token::That, Token::That) => true,
-            (Token::Local, Token::Local) => true,
-            (Token::Argument, Token::Argument) => true,
-            (Token::Static, Token::Static) => true,
-            (Token::Pointer, Token::Pointer) => true,
-            (Token::Temp, Token::Temp) => true,
-            (Token::Constant, Token::Constant) => true,
             (Token::Ignore(_), Token::Ignore(_)) => true,
             (Token::Name(_), Token::Name(_)) => true,
             (Token::Number(_), Token::Number(_)) => true,
-            _ => false,
+            _ => self == other,
         }
     }
 }
@@ -340,6 +316,7 @@ fn ignore(lexer: &mut Lexer<Token>) -> Option<(usize, Option<String>)> {
     match slice {
         " " => Some((0, None)),
         "\n" => Some((1, Some("newline".to_string()))),
+        "\r\n" => Some((1, Some("newline".to_string()))),
         "\t" => Some((0, None)),
         _ => Some((slice.matches("\n").count(), Some(slice.to_string()))),
     }

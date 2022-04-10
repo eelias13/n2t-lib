@@ -347,6 +347,7 @@ pub enum Token {
     #[token("\t", ignore)]
     #[token(" ", ignore)]
     #[token("\n", ignore)]
+    #[token("\r\n", ignore)]
     #[regex(r"(/\*([^*]|\*[^/])*\*/)|(//[^\r\n]*(\r\n|\n)?)", ignore)]
     Ignore((usize, Option<String>)),
 
